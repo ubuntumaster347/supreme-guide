@@ -1,0 +1,101 @@
+name: Dump
+
+on:
+  workflow_dispatch:
+  push:
+  schedule:
+    - cron: '0/45 * * * * ' 
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+       - name: Checkouts
+         uses: actions/checkout@v2
+         
+       - name: Start Dump
+         run: |
+              NAME_OF_THIS_REPO="dumper"
+              GITHUB_ORG_NAME="publicdumps"
+              GITLAB_ORG_NAME="publicdumps"
+              GITLAB_USERNAME="publicdumpbot"
+              GITHUB_USERNAME="publicdumpbot"
+              PUBLIC_DUMP_REQUEST_REPO_NAME=dumprequests
+              GIT_CONFIG_USERNAME="Box In A Box"
+              GIT_CONFIG_EMAIL="evanferrao@gmail.com"
+              GIT_CONFIG_USERNAME_FOR_DUMPREQUESTS_REPO=publicdumpbot   #Set Same As GIT_CONFIG_USERNAME Generally
+              GIT_CONFIG_EMAIL_FOR_DUMPREQUESTS_REPO=95495188+publicdumpbot@users.noreply.github.com     #Set Same As GIT_CONFIG_EMAIL Generally
+              GIT_GITHUB_TOKEN="${{ secrets.GIT_GITHUB_TOKEN }}"
+              GITLAB_TOKEN="${{ secrets.GITLAB_TOKEN }}"
+              TG_BOT_TOKEN="${{ secrets.TG_BOT_TOKEN }}"
+              TG_CHAT="@PublicDumps"
+              CHAT_REQUEST_ID="@PublicSelfDumps"  # Your Dump Request Group
+              GITLAB_HOSTNAME="gitlab.com" ## use 'gitlab.com' by default, or use your own github instance, or any public one
+              #Do Not Edit This
+              git config --global user.name "$GIT_CONFIG_USERNAME_FOR_DUMPREQUESTS_REPO"
+              git config --global user.email "$GIT_CONFIG_EMAIL_FOR_DUMPREQUESTS_REPO"
+              
+              ########### Additional Config For Public Dumping ###########
+              
+              git clone --depth=1 --single-branch https://github.com/${GITHUB_USERNAME}/${PUBLIC_DUMP_REQUEST_REPO_NAME}.git ${PUBLIC_DUMP_REQUEST_REPO_NAME}
+              if [ $(wc -l < ${PUBLIC_DUMP_REQUEST_REPO_NAME}/dump_request_link.txt) -lt 4 ]; then echo "No More Dumps To Execute!" && exit 0 ; fi
+              ROM_URL_INFO=$(sed -n '4p' ${PUBLIC_DUMP_REQUEST_REPO_NAME}/dump_request_link.txt)
+              #pbl stands for public, pvt stands for private. Link would be in the form pbl:<link> / pvt:<link>
+              DUMP_TYPE=$(echo $ROM_URL_INFO | cut -d ":" -f 1)
+              ROM_URL=$(echo $ROM_URL_INFO | cut -d ":" -f 2)
+              CHAT_ID=$(echo $ROM_URL_INFO | cut -d ":" -f 3)
+              USER_ID=$(echo $ROM_URL_INFO | cut -d ":" -f 4)
+              USER_TAG=$(echo $ROM_URL_INFO | cut -d ":" -f 5)
+              USER_FIRST_NAME=$(echo $ROM_URL_INFO | cut -d ":" -f 6)
+              sed -i '4d' ${PUBLIC_DUMP_REQUEST_REPO_NAME}/dump_request_link.txt
+              echo ${ROM_URL} > CLEAN.txt && CLEAN=$(sed 's/^.*\///' CLEAN.txt) && CLEAN=$(echo "${CLEAN%.*}") && rm CLEAN.txt
+              ROM_URL=$(echo ${ROM_URL} | sed s/'%0D'//) #bruhminus
+              echo $ROM_URL
+              cd ${PUBLIC_DUMP_REQUEST_REPO_NAME}
+              git add . -f
+              git commit -m "dumper: Initiate Dump: Started Dump For ${CLEAN}"
+              git push --quiet -f https://${GITHUB_USERNAME}:${GIT_GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/${PUBLIC_DUMP_REQUEST_REPO_NAME}
+              cd -
+              
+              #Clone Dumpyara
+              
+              if [ ${DUMP_TYPE} == "pvt" ]
+              then
+                  git clone --depth=1 --single-branch https://github.com/Box-boi/phoenix_firmware_dumper.git -b private
+                  sed -i s/'Contact Group Owner If You Need Access To Dump'/'Join Group To Get Access To Dump'/g phoenix_firmware_dumper/dumper.sh
+              elif [ ${DUMP_TYPE} == "pbl" ]
+              then
+                  git clone --depth=1 --single-branch https://github.com/Box-boi/phoenix_firmware_dumper.git
+              else
+                  echo ' $DUMP_TYPE Variable Not Set, Exiting....'
+                  exit 1
+              fi
+              
+              cd phoenix_firmware_dumper
+              echo ${CHAT_ID} > .tg_chat_id && echo ${USER_ID} > .user_id && echo ${USER_TAG} > .user_tag && echo ${USER_FIRST_NAME} > .user_first_name
+              sudo bash setup.sh
+              sed -i s/"DroidDumps@github.com"/"$GIT_CONFIG_EMAIL"/g dumper.sh
+              sed -i s/"user.name \"DroidDumps\""/"user.name \"$GIT_CONFIG_USERNAME\""/g dumper.sh
+              
+              #Setup Variables
+              echo "$GITHUB_ORG_NAME" > .github_orgname
+              echo "$GITLAB_HOSTNAME" > .gitlab_instance
+              echo "$GIT_GITHUB_TOKEN" > .github_token
+              echo "$GITLAB_ORG_NAME" > .gitlab_orgname
+              echo "$GITLAB_USERNAME" > .gitlab_username
+              echo "$GITHUB_USERNAME" > .github_username
+              echo "$GITLAB_TOKEN" > .gitlab_token
+              echo "$CHAT_REQUEST_ID" > .tg_request_chat
+              echo "$TG_BOT_TOKEN" > .tg_token
+              echo "$TG_CHAT" > .tg_chat
+              
+              #Send Telegram Conformation  #Sends A 'Starting Dump...' Message, and saves the message id to a file, so that, message can be edited live later on
+              echo ""$(curl -X POST -H 'Content-Type: application/json' -d "{\"chat_id\": \"$(< .tg_chat_id)\", \"text\": \"Starting Dump...\", \"disable_notification\": true}" https://api.telegram.org/bot$TG_BOT_TOKEN/sendMessage | grep -oP "(\"message_id\":)[0-9]+" | cut -d ":" -f 2)"" > .message_id
+              
+              #Initiate Dump Now
+              sudo bash dumper.sh ${ROM_URL}
