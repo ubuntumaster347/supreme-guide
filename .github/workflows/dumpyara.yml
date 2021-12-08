@@ -1,10 +1,11 @@
 name: Dump
-
+##
 'on':
+  pull_request:
   workflow_dispatch:
   push:
   schedule:
-    - cron: '* * * * * ' 
+    - cron: '1-59/2 * * * * '
 
 defaults:
   run:
