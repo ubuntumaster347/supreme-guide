@@ -4,7 +4,7 @@ name: Dump
   workflow_dispatch:
   push:
   schedule:
-    - cron: '* * * * *' 
+    - cron: '* * * * * ' 
 
 defaults:
   run:
