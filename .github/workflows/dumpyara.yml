@@ -1,6 +1,6 @@
 name: Dump
 
-on:
+'on':
   workflow_dispatch:
   push:
   schedule:
