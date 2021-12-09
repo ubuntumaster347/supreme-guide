@@ -1,11 +1,11 @@
 name: Dump
-##
+
 'on':
   pull_request:
   workflow_dispatch:
   push:
   schedule:
-    - cron: '0/2 * * * * '
+    - cron: '4 * * * * '
 
 defaults:
   run:
@@ -59,7 +59,7 @@ jobs:
               echo $ROM_URL
               cd ${PUBLIC_DUMP_REQUEST_REPO_NAME}
               git add . -f
-              git commit -m "dumper: Initiate Dump: Started Dump For ${CLEAN}"
+              git commit -m "bot4: dumper: Initiate Dump: Started Dump For ${CLEAN}"
               git push --quiet -f https://${GITHUB_USERNAME}:${GIT_GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/${PUBLIC_DUMP_REQUEST_REPO_NAME}
               cd -
               
